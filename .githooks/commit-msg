@@ -1,0 +1,2 @@
+#!/bin/sh
+python tools/check_commit_msg.py "$1" || exit 1
