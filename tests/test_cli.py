@@ -11,6 +11,7 @@ import pytest
 from test_http import FakeClock
 from iocs.cli import (
     EXIT_OK,
+    EXIT_PARTIAL_PREFIXES,
     EXIT_USAGE,
     build_parser,
     collect,
@@ -119,12 +120,6 @@ def test_lookup_reports_a_miss(tmp_path: pathlib.Path, capsys: pytest.CaptureFix
 # Verify a value that is not an indicator is rejected
 def test_lookup_rejects_nonsense(tmp_path: pathlib.Path) -> None:
     assert main(["lookup", "not an ioc", "--data", str(tmp_path)]) == EXIT_USAGE
-
-
-# Verify lookup works before any collection has been run
-def test_lookup_without_data(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["lookup", "evil.example", "--data", str(tmp_path / "missing")]) == EXIT_OK
-    assert "not found" in capsys.readouterr().out
 
 
 # Verify the source listing names every source, its license and where to read it
@@ -266,3 +261,47 @@ async def test_collect_revalidates_feeds(tmp_path: pathlib.Path) -> None:
     await collect([feed], out, state, revalidating_fetcher(bodies, [feed]), TODAY)
     _, outcomes = await collect([feed], out, state, revalidating_fetcher(bodies, [feed]), TODAY)
     assert outcomes["alpha_feed"] == "not_modified"
+
+
+# Verify a feed that still answers but no longer parses is reported, not passed
+# over. This is how a publisher changing format shows up, and a 200 alone hides it.
+async def test_collect_flags_a_feed_that_yields_nothing(tmp_path: pathlib.Path) -> None:
+    source = make_source("alpha_feed", "alpha")
+    fetcher = fetcher_for({source.url: b"<html><body>Moved</body></html>"}, [source])
+    _, outcomes = await collect([source], tmp_path / "out", tmp_path / "state", fetcher, TODAY)
+    assert outcomes["alpha_feed"].startswith("empty")
+
+
+# Verify a feed that does parse is not flagged
+async def test_collect_does_not_flag_a_working_feed(tmp_path: pathlib.Path) -> None:
+    source = make_source("alpha_feed", "alpha")
+    fetcher = fetcher_for({source.url: b"45.155.205.233\n"}, [source])
+    _, outcomes = await collect([source], tmp_path / "out", tmp_path / "state", fetcher, TODAY)
+    assert outcomes["alpha_feed"] == "fetched"
+
+
+# Verify an empty feed makes the run report a partial result rather than success
+def test_empty_feed_is_a_partial_run() -> None:
+    assert "empty" in EXIT_PARTIAL_PREFIXES
+
+
+# Verify a missing corpus is reported as such, not as a miss. Saying "not found"
+# when nothing has been collected sends the reader looking for the wrong problem.
+def test_lookup_without_a_corpus_says_so(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = main(["lookup", "evil.example", "--data", str(tmp_path / "empty")])
+    captured = capsys.readouterr()
+    assert code == EXIT_USAGE
+    assert "no corpus" in captured.err
+    assert "collect" in captured.err
+
+
+# Verify a real miss against a real corpus still reads as a miss
+def test_lookup_miss_is_distinct_from_a_missing_corpus(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data = seed_corpus(tmp_path / "out")
+    code = main(["lookup", "203.0.113.7", "--data", str(data)])
+    assert code == EXIT_OK
+    assert "not found" in capsys.readouterr().out
