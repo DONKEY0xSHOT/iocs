@@ -1,0 +1,51 @@
+name: collect
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+# read only, and no step pushes anything. The collection writes to out/ and
+# state/ in the runner workspace, which is discarded when the job ends.
+permissions:
+  contents: read
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: pip install -e .
+
+      # A real collection against the live feeds, so a publisher changing their
+      # format is caught here rather than on a user's machine. Nothing is kept.
+      - name: Collect
+        run: python -m iocs collect --out out --state state
+
+      - name: Report
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import pathlib
+
+          report = pathlib.Path("out/sources.json")
+          print("### Source outcomes\n")
+          if not report.exists():
+              print("The run stopped before it could write a report.")
+          else:
+              outcomes = json.loads(report.read_text(encoding="utf-8"))["sources"]
+              for name, outcome in sorted(outcomes.items()):
+                  print(f"- `{name}`: {outcome}")
+          PY
