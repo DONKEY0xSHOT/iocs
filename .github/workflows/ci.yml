@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # the dev group lives in pyproject.toml, so ci and a local run install the
+      # same tools and cannot drift apart
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . --group dev
+
+      # one command, one exit status: lint, format, standards, types, tests.
+      # A non zero exit fails the job, which is what blocks the pull request.
+      - name: Verify
+        run: python tools/verify.py
