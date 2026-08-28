@@ -97,8 +97,8 @@ def test_lookup_shows_the_origins(
     data = seed_corpus(tmp_path / "out")
     main(["lookup", VALUE, "--data", str(data)])
     output = capsys.readouterr().out
-    assert "2  (circl, etopen)" in output
-    assert "circl" in output
+    assert "circl, etopen" in output
+    assert "origins" in output
 
 
 # Verify the json surface stays undefanged and hands back the whole record

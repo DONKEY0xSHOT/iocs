@@ -24,6 +24,7 @@ from iocs.http import (
 )
 from iocs.indicators import Canonical, IocType, Observation, Record, classify, defang, encode
 from iocs.parsers import ParserOptions, parse
+from iocs.render import enable_windows_colour, render_record, supports_colour
 from iocs.sources import REGISTRY, LicenseClass, Source, follow_prefixes, traits_by_origin
 from iocs.version import VERSION
 
@@ -235,18 +236,11 @@ def run_sources() -> int:
 def show_record(record: dict[str, Any]) -> None:
     """Print what we know about one indicator, defanged so it cannot be clicked."""
 
-    origins = [str(name) for name in record.get("origins", [])]
-    first, last = str(record.get("first_seen")), str(record.get("last_seen"))
-    rows = (
-        ("type", str(record.get("type"))),
-        ("score", f"{record.get('score')} of 100"),
-        ("origins", f"{len(origins)}  ({', '.join(origins)})"),
-        ("seen", first if first == last else f"{first} to {last}"),
-        ("shareable", "yes" if record.get("redistributable") else "no"),
-    )
-    print(f"\n  {defang(str(record['value']))}\n")
-    for label, value in rows:
-        print(f"  {label:<10} {value}")
+    colour = supports_colour(sys.stdout)
+    if colour:
+        enable_windows_colour()
+    print()
+    print(render_record(record, defang(str(record["value"])), colour))
     print()
 
 
