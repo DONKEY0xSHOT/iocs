@@ -14,21 +14,20 @@ The project currently collects 45M+ hashes, 1M+ domains, 800K+ URLs and 50K+ IPs
 
 ## Usage
 
+To setup the tool & collect IOCs with it, run these commands:
 ```bash
 pip install -e .
 python -m iocs collect
 ```
 
-No API keys or configuration whatsoever : )
 
+To lookup an IOC using this tool, run this command:
 ```bash
 python -m iocs lookup 45.155.205.233
 ```
 
-`lookup` answers offline and prints defanged. 
-
+To list every feed, its license & whether its data may be passed on, run this command:
 ```bash
 python -m iocs sources
  ```
  
-`sources` lists every feed, its license, and whether its data may be passed on.
