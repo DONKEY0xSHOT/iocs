@@ -3,7 +3,6 @@
 # Imports
 import ctypes
 import os
-import sys
 from typing import Any, TextIO
 
 # Constants
@@ -31,9 +30,13 @@ def supports_colour(stream: TextIO) -> bool:
 def enable_windows_colour() -> None:
     """Switch on escape sequences, which windows consoles start with turned off."""
 
-    if sys.platform != "win32":
+    # there is nothing to switch on outside a windows console
+    if os.name != "nt":
         return
-    kernel = ctypes.windll.kernel32
+    windll = getattr(ctypes, "windll", None)
+    if windll is None:
+        return
+    kernel = windll.kernel32
     handle = kernel.GetStdHandle(STDOUT_HANDLE)
     mode = ctypes.c_ulong()
     if kernel.GetConsoleMode(handle, ctypes.byref(mode)):
