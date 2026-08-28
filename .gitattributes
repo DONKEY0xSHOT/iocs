@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+out/** linguist-generated=true
+tests/fixtures/feeds/** linguist-generated=true -diff
+*.txt -diff
