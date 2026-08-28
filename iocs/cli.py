@@ -24,7 +24,12 @@ from iocs.http import (
 )
 from iocs.indicators import Canonical, IocType, Observation, Record, classify, defang, encode
 from iocs.parsers import ParserOptions, parse
-from iocs.render import enable_windows_colour, render_record, supports_colour
+from iocs.render import (
+    enable_windows_colour,
+    render_record,
+    render_sources,
+    supports_colour,
+)
 from iocs.sources import REGISTRY, LicenseClass, Source, follow_prefixes, traits_by_origin
 from iocs.version import VERSION
 
@@ -38,6 +43,7 @@ WORK_DIR = "work"
 CACHE_NAME = "http_cache.json"
 EXCLUDED_NAME = "excluded.json"
 REPORT_NAME = "sources.json"
+MERGING_NOTE = "merging and scoring, this is the slow part"
 EXIT_PARTIAL_PREFIXES = ("failed", "skipped", "empty")
 Typed = tuple[IocType, Observation]
 
@@ -141,7 +147,9 @@ def _stage(observations: Iterable[Typed], work: pathlib.Path) -> None:
 
 # Build the allowlist from any source that supplies exclusions rather than indicators
 async def _load_allowlist(
-    sources: Sequence[Source], fetcher: Fetcher, outcomes: dict[str, str]
+    sources: Sequence[Source],
+    fetcher: Fetcher,
+    outcomes: dict[str, str],
 ) -> Allowlist:
     built = Allowlist()
     for source in sources:
@@ -155,7 +163,11 @@ async def _load_allowlist(
 
 
 async def collect(
-    sources: Sequence[Source], out: pathlib.Path, state: pathlib.Path, fetcher: Fetcher, today: str
+    sources: Sequence[Source],
+    out: pathlib.Path,
+    state: pathlib.Path,
+    fetcher: Fetcher,
+    today: str,
 ) -> tuple[list[Stats], dict[str, str]]:
     """Run one full collection, from fetch through to the written corpus."""
 
@@ -217,7 +229,8 @@ async def run_collect(args: argparse.Namespace) -> int:
             sources, pathlib.Path(args.out), pathlib.Path(args.state), fetcher, today()
         )
     for item in stats:
-        print(f"{item.kind.value:7} total={item.total:<10} confirmed={item.confirmed}")
+        print(f"    {item.kind.value:8} {item.total:>12,}   confirmed {item.confirmed:>9,}")
+    print()
     failed = sum(1 for text in outcomes.values() if text.startswith(EXIT_PARTIAL_PREFIXES))
     return EXIT_PARTIAL if failed else EXIT_OK
 
@@ -225,11 +238,16 @@ async def run_collect(args: argparse.Namespace) -> int:
 def run_sources() -> int:
     """List every source, its license, and whether its data may be passed on."""
 
-    for source in REGISTRY:
-        shareable = (
-            "may be shared" if source.license_class is LicenseClass.PERMISSIVE else "local use only"
-        )
-        print(f"{source.name:28} {source.license_id:16} {shareable:15} {source.license_url}")
+    colour = supports_colour(sys.stdout)
+    if colour:
+        enable_windows_colour()
+    entries = [
+        (source.name, source.license_id, source.license_class is LicenseClass.PERMISSIVE)
+        for source in sorted(REGISTRY, key=lambda item: item.name)
+    ]
+    print()
+    print(render_sources(entries, colour))
+    print()
     return EXIT_OK
 
 

@@ -3,6 +3,7 @@
 # Imports
 import ctypes
 import os
+from collections.abc import Sequence
 from typing import Any, TextIO
 
 # Constants
@@ -17,6 +18,13 @@ STRONG_SCORE = 70
 FAIR_SCORE = 40
 WINDOWS_ANSI_MODE = 0x0004
 STDOUT_HANDLE = -11
+Cell = tuple[str, str]
+
+
+def is_terminal(stream: TextIO) -> bool:
+    """Report whether this stream can redraw a line in place."""
+
+    return bool(getattr(stream, "isatty", bool)())
 
 
 def supports_colour(stream: TextIO) -> bool:
@@ -24,7 +32,7 @@ def supports_colour(stream: TextIO) -> bool:
 
     if os.environ.get("NO_COLOR"):
         return False
-    return bool(getattr(stream, "isatty", bool)())
+    return is_terminal(stream)
 
 
 def enable_windows_colour() -> None:
@@ -73,17 +81,45 @@ def _cell(text: str, width: int, colour: str, wanted: bool) -> str:
     return f"{colour}{padded}{RESET}" if colour and wanted else padded
 
 
+# Draw one row of already measured cells between the table borders
+def _line(cells: Sequence[Cell], widths: Sequence[int], colour: bool) -> str:
+    drawn = (
+        _cell(text, width, tint, colour) for (text, tint), width in zip(cells, widths, strict=True)
+    )
+    return "  | " + " | ".join(drawn) + " |"
+
+
+def render_table(rows: Sequence[Sequence[Cell]], colour: bool, headers: Sequence[str] = ()) -> str:
+    """Draw an aligned table, tinting cells only when colour is wanted."""
+
+    measured = [*rows, [(text, "") for text in headers]] if headers else list(rows)
+    widths = [max(len(row[index][0]) for row in measured) for index in range(len(measured[0]))]
+    rule = "  +" + "+".join("-" * (width + 2) for width in widths) + "+"
+    lines = [rule]
+    if headers:
+        lines.append(_line([(text, DIM) for text in headers], widths, colour))
+        lines.append(rule)
+    lines.extend(_line(row, widths, colour) for row in rows)
+    lines.append(rule)
+    return "\n".join(lines)
+
+
 def render_record(record: dict[str, Any], value: str, colour: bool) -> str:
     """Draw the table for one indicator, using the already defanged value."""
 
-    rows = _rows(record, value)
-    labels = max(len(label) for label, _, _ in rows)
-    values = max(len(text) for _, text, _ in rows)
-    rule = f"  +{'-' * (labels + 2)}+{'-' * (values + 2)}+"
-    lines = [rule]
-    for label, text, tint in rows:
-        left = _cell(label, labels, DIM, colour)
-        right = _cell(text, values, tint, colour)
-        lines.append(f"  | {left} | {right} |")
-    lines.append(rule)
-    return "\n".join(lines)
+    rows = [[(label, DIM), (text, tint)] for label, text, tint in _rows(record, value)]
+    return render_table(rows, colour)
+
+
+def render_sources(entries: Sequence[tuple[str, str, bool]], colour: bool) -> str:
+    """Draw every source, saying whether its data may be passed on."""
+
+    rows = [
+        [
+            (name, ""),
+            (licence, CYAN),
+            ("yes", GREEN) if shareable else ("no", YELLOW),
+        ]
+        for name, licence, shareable in entries
+    ]
+    return render_table(rows, colour, headers=("source", "license", "shareable"))

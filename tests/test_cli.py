@@ -126,17 +126,25 @@ def test_lookup_rejects_nonsense(tmp_path: pathlib.Path) -> None:
 def test_sources_command_lists_feeds(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["sources"]) == EXIT_OK
     output = capsys.readouterr().out
-    assert "circl_osint_feed" in output
-    assert "https://" in output
-    assert len(output.splitlines()) == len(REGISTRY)
+    assert all(source.name in output for source in REGISTRY)
+    for heading in ("source", "license", "shareable"):
+        assert heading in output
 
 
 # Verify the listing says which sources may be passed on and which may not
 def test_sources_command_marks_shareability(capsys: pytest.CaptureFixture[str]) -> None:
     main(["sources"])
-    output = capsys.readouterr().out
-    assert "may be shared" in output
-    assert "local use only" in output
+    rows = [line for line in capsys.readouterr().out.splitlines() if line.startswith("  |")]
+    cells = [[part.strip() for part in row.split("|")[1:-1]] for row in rows]
+    assert {row[-1] for row in cells[1:]} == {"yes", "no"}
+
+
+# Verify the listing reads alphabetically, so a source is easy to find by eye
+def test_sources_command_is_sorted(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["sources"])
+    rows = [line for line in capsys.readouterr().out.splitlines() if line.startswith("  | ")]
+    names = [line.split("|")[1].strip() for line in rows][1:]
+    assert names == sorted(names)
 
 
 # Verify one collection turns a feed into the written corpus
