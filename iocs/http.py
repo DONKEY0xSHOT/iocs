@@ -146,7 +146,7 @@ def parse_retry_after(header: str | None, sent: datetime | None, now: datetime) 
         return max(0.0, float(text))
     try:
         target = parsedate_to_datetime(text)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return max(0.0, (target - (sent or now)).total_seconds())
 
@@ -217,7 +217,7 @@ def _server_time(header: str | None) -> datetime | None:
         return None
     try:
         return parsedate_to_datetime(header)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

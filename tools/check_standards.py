@@ -40,7 +40,7 @@ def check_file(path: pathlib.Path) -> list[Violation]:
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
         tree = ast.parse(text)
-    except (SyntaxError, tokenize.TokenError):
+    except SyntaxError, tokenize.TokenError:
         out.append(Violation(str(path), 1, "parse", "file does not parse"))
         return out
     out.extend(check_preamble(path, lines, tree))

@@ -116,7 +116,7 @@ def _as_domain(text: str) -> Canonical | Rejection | None:
         return None
     try:
         host = host.encode("idna").decode("ascii")
-    except (UnicodeError, UnicodeDecodeError):
+    except UnicodeError, UnicodeDecodeError:
         return Rejection()
     labels = host.split(".")
     if any(len(item) > MAX_LABEL_LENGTH or not LABEL.match(item) for item in labels):
@@ -195,7 +195,7 @@ class Record:
     sightings: tuple[Sighting, ...]
 
     @classmethod
-    def from_observation(cls, obs: Observation) -> "Record":
+    def from_observation(cls, obs: Observation) -> Record:
         """Build a fresh single sighting record."""
 
         seen = Sighting(obs.origin, obs.seen_on, obs.seen_on, obs.credibility, 1)

@@ -6,11 +6,14 @@ import sys
 
 # Constants
 PYTHON = sys.executable
+
+# Types are checked for this machine and again for linux, which ci runs on
 GATES = (
     ("lint", [PYTHON, "-m", "ruff", "check", "."]),
     ("format", [PYTHON, "-m", "ruff", "format", "--check", "."]),
     ("standards", [PYTHON, "tools/check_standards.py", "iocs", "tests", "tools"]),
     ("types", [PYTHON, "-m", "mypy"]),
+    ("types linux", [PYTHON, "-m", "mypy", "--platform", "linux"]),
     ("tests", [PYTHON, "-m", "pytest", "-q"]),
 )
 

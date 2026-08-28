@@ -24,6 +24,7 @@ from iocs.http import (
 )
 from iocs.indicators import Canonical, IocType, Observation, Record, classify, defang, encode
 from iocs.parsers import ParserOptions, parse
+from iocs.render import enable_windows_colour, render_record, supports_colour
 from iocs.sources import REGISTRY, LicenseClass, Source, follow_prefixes, traits_by_origin
 from iocs.version import VERSION
 
@@ -37,6 +38,7 @@ WORK_DIR = "work"
 CACHE_NAME = "http_cache.json"
 EXCLUDED_NAME = "excluded.json"
 REPORT_NAME = "sources.json"
+EXIT_PARTIAL_PREFIXES = ("failed", "skipped", "empty")
 Typed = tuple[IocType, Observation]
 
 
@@ -173,8 +175,15 @@ async def collect(
         outcomes[source.name] = _outcome_detail(outcome)
         if not isinstance(outcome, Fetched):
             continue
+        produced = 0
         async for found in _follow(source, outcome.body, fetcher, today, cache):
+            produced += len(found)
             _stage(found, work)
+
+        # a feed that answers but parses to nothing is how a format change looks,
+        # and a 200 on its own would let that pass as a healthy run
+        if not produced:
+            outcomes[source.name] = "empty: fetched but produced no indicators"
     _save_cache(state, cache)
     stats, excluded = build(out, state, work, today, allowlist, traits_by_origin())
     (out / EXCLUDED_NAME).write_text(json.dumps(excluded, indent=2), encoding="utf-8")
@@ -209,7 +218,7 @@ async def run_collect(args: argparse.Namespace) -> int:
         )
     for item in stats:
         print(f"{item.kind.value:7} total={item.total:<10} confirmed={item.confirmed}")
-    failed = sum(1 for name in outcomes.values() if name.startswith(("failed", "skipped")))
+    failed = sum(1 for text in outcomes.values() if text.startswith(EXIT_PARTIAL_PREFIXES))
     return EXIT_PARTIAL if failed else EXIT_OK
 
 
@@ -227,18 +236,11 @@ def run_sources() -> int:
 def show_record(record: dict[str, Any]) -> None:
     """Print what we know about one indicator, defanged so it cannot be clicked."""
 
-    origins = [str(name) for name in record.get("origins", [])]
-    first, last = str(record.get("first_seen")), str(record.get("last_seen"))
-    rows = (
-        ("type", str(record.get("type"))),
-        ("score", f"{record.get('score')} of 100"),
-        ("origins", f"{len(origins)}  ({', '.join(origins)})"),
-        ("seen", first if first == last else f"{first} to {last}"),
-        ("shareable", "yes" if record.get("redistributable") else "no"),
-    )
-    print(f"\n  {defang(str(record['value']))}\n")
-    for label, value in rows:
-        print(f"  {label:<10} {value}")
+    colour = supports_colour(sys.stdout)
+    if colour:
+        enable_windows_colour()
+    print()
+    print(render_record(record, defang(str(record["value"])), colour))
     print()
 
 
@@ -249,7 +251,12 @@ def run_lookup(args: argparse.Namespace) -> int:
     if not isinstance(parsed, Canonical):
         print(f"not a recognised indicator: {defang(args.value)}", file=sys.stderr)
         return EXIT_USAGE
-    record = lookup(pathlib.Path(args.data) / OUTPUT_NAME, parsed.value)
+    store = pathlib.Path(args.data) / OUTPUT_NAME
+    if not store.exists():
+        print(f"no corpus at {store}", file=sys.stderr)
+        print("run: python -m iocs collect", file=sys.stderr)
+        return EXIT_USAGE
+    record = lookup(store, parsed.value)
     if record is None:
         print(f"not found: {defang(parsed.value)}")
         return EXIT_OK
