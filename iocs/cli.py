@@ -8,7 +8,7 @@ import datetime
 import json
 import pathlib
 import sys
-from collections.abc import AsyncIterator, Iterable, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 from typing import Any
 from iocs.allowlist import Allowlist, apply_layers, load_warninglist_archive
 from iocs.corpus import OUTPUT_NAME, Stats, build, lookup, write_sorted_chunks
@@ -21,13 +21,18 @@ from iocs.http import (
     Unchanged,
     UrlGuard,
     build_client,
+    load_cache,
+    save_cache,
 )
 from iocs.indicators import Canonical, IocType, Observation, Record, classify, defang, encode
 from iocs.parsers import ParserOptions, parse
 from iocs.render import (
+    Progress,
     enable_windows_colour,
+    is_terminal,
     render_record,
     render_sources,
+    run_summary,
     supports_colour,
 )
 from iocs.sources import REGISTRY, LicenseClass, Source, follow_prefixes, traits_by_origin
@@ -40,12 +45,17 @@ EXIT_PARTIAL = 3
 DEFAULT_OUT = "out"
 DEFAULT_STATE = "state"
 WORK_DIR = "work"
-CACHE_NAME = "http_cache.json"
 EXCLUDED_NAME = "excluded.json"
 REPORT_NAME = "sources.json"
 MERGING_NOTE = "merging and scoring, this is the slow part"
 EXIT_PARTIAL_PREFIXES = ("failed", "skipped", "empty")
 Typed = tuple[IocType, Observation]
+Report = Callable[[str, bool], None]
+
+
+# Ignore progress, which is what a test or a piped run wants
+def _silent(*_: object) -> None:
+    return
 
 
 def today() -> str:
@@ -59,25 +69,6 @@ def _outcome_detail(outcome: Outcome) -> str:
     name = type(outcome).__name__.lower().replace("notmodified", "not_modified")
     reason = getattr(outcome, "reason", None) or getattr(outcome, "detail", None)
     return f"{name}: {reason}" if reason else name
-
-
-# Remember the validators each url returned so the next run can revalidate cheaply
-def _load_cache(state: pathlib.Path) -> dict[str, CacheEntry]:
-    target = state / CACHE_NAME
-    if not target.exists():
-        return {}
-    try:
-        stored = json.loads(target.read_text(encoding="utf-8"))
-    except ValueError:
-        return {}
-    return {url: CacheEntry(**fields) for url, fields in stored.items()}
-
-
-# Write the validator cache back in a form a person can read
-def _save_cache(state: pathlib.Path, cache: dict[str, CacheEntry]) -> None:
-    state.mkdir(parents=True, exist_ok=True)
-    payload = {url: dataclasses.asdict(entry) for url, entry in sorted(cache.items())}
-    (state / CACHE_NAME).write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 # Fetch one url, sending what we cached last time and saving what comes back
@@ -122,14 +113,20 @@ def _observations(source: Source, body: bytes, today: str) -> list[Typed]:
 # Fetch each document an index source points at, capped so one feed cannot run
 # away. One batch is yielded per document, so a large feed is never held whole.
 async def _follow(
-    source: Source, body: bytes, fetcher: Fetcher, today: str, cache: dict[str, CacheEntry]
+    source: Source,
+    body: bytes,
+    fetcher: Fetcher,
+    today: str,
+    cache: dict[str, CacheEntry],
+    report: Report,
 ) -> AsyncIterator[list[Typed]]:
     if not source.follow_template or not source.follow_parser:
         yield _observations(source, body, today)
         return
     items = list(parse(source.parser, body, _options_for(source)))[: source.follow_limit]
     reader = dataclasses.replace(source, parser=source.follow_parser, archive="")
-    for item in items:
+    for index, item in enumerate(items, start=1):
+        report(f"{source.name} {index}/{len(items)}", False)
         target = source.follow_template.format(item=item)
         outcome = await _fetch(dataclasses.replace(source, url=target), fetcher, cache)
         if isinstance(outcome, Fetched):
@@ -150,6 +147,7 @@ async def _load_allowlist(
     sources: Sequence[Source],
     fetcher: Fetcher,
     outcomes: dict[str, str],
+    report: Report,
 ) -> Allowlist:
     built = Allowlist()
     for source in sources:
@@ -159,6 +157,7 @@ async def _load_allowlist(
         outcomes[source.name] = _outcome_detail(outcome)
         if isinstance(outcome, Fetched):
             built = apply_layers(built, load_warninglist_archive(outcome.body))
+        report(source.name, True)
     return built
 
 
@@ -168,27 +167,31 @@ async def collect(
     state: pathlib.Path,
     fetcher: Fetcher,
     today: str,
+    report: Report = _silent,
 ) -> tuple[list[Stats], dict[str, str]]:
     """Run one full collection, from fetch through to the written corpus."""
 
     work = out / WORK_DIR
     outcomes: dict[str, str] = {}
-    cache = _load_cache(state)
+    cache = load_cache(state)
 
     # a source producing no indicators is here to supply exclusions instead
     allowlist = await _load_allowlist(
-        [item for item in sources if not item.produces], fetcher, outcomes
+        [item for item in sources if not item.produces], fetcher, outcomes, report
     )
     for source in (item for item in sources if item.produces):
+        report(source.name, False)
         if await _sentinel_unchanged(source, fetcher, cache):
             outcomes[source.name] = "not_modified"
+            report(source.name, True)
             continue
         outcome = await _fetch(source, fetcher, cache)
         outcomes[source.name] = _outcome_detail(outcome)
         if not isinstance(outcome, Fetched):
+            report(source.name, True)
             continue
         produced = 0
-        async for found in _follow(source, outcome.body, fetcher, today, cache):
+        async for found in _follow(source, outcome.body, fetcher, today, cache, report):
             produced += len(found)
             _stage(found, work)
 
@@ -196,7 +199,11 @@ async def collect(
         # and a 200 on its own would let that pass as a healthy run
         if not produced:
             outcomes[source.name] = "empty: fetched but produced no indicators"
-    _save_cache(state, cache)
+        report(source.name, True)
+    save_cache(state, cache)
+
+    # the merge is the long tail of a big run, so keep the bar saying so
+    report(MERGING_NOTE, False)
     stats, excluded = build(out, state, work, today, allowlist, traits_by_origin())
     (out / EXCLUDED_NAME).write_text(json.dumps(excluded, indent=2), encoding="utf-8")
     (out / REPORT_NAME).write_text(
@@ -223,11 +230,21 @@ async def run_collect(args: argparse.Namespace) -> int:
 
     sources = select_sources(args.sources)
     guard = UrlGuard(frozenset(source.url for source in sources), follow_prefixes(sources))
+    colour = supports_colour(sys.stdout)
+    if colour:
+        enable_windows_colour()
+    progress = Progress(len(sources), sys.stdout, is_terminal(sys.stdout), colour)
     async with build_client() as client:
         fetcher = Fetcher(client, guard)
         stats, outcomes = await collect(
-            sources, pathlib.Path(args.out), pathlib.Path(args.state), fetcher, today()
+            sources,
+            pathlib.Path(args.out),
+            pathlib.Path(args.state),
+            fetcher,
+            today(),
+            progress.step,
         )
+    progress.close(run_summary(outcomes, EXIT_PARTIAL_PREFIXES))
     for item in stats:
         print(f"    {item.kind.value:8} {item.total:>12,}   confirmed {item.confirmed:>9,}")
     print()

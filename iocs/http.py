@@ -2,7 +2,10 @@
 
 # Imports
 import asyncio
+import dataclasses
 import hashlib
+import json
+import pathlib
 import random
 import re
 import time
@@ -16,6 +19,7 @@ from iocs.sources import Source
 from iocs.version import USER_AGENT
 
 # Constants
+CACHE_NAME = "http_cache.json"
 MAX_BODY_BYTES = 512 * 1024 * 1024
 CONNECT_TIMEOUT = 10.0
 READ_TIMEOUT = 30.0
@@ -291,3 +295,24 @@ class Fetcher:
             if not isinstance(last, Failed) or not await self._pause(last, attempt):
                 return last
         return last
+
+
+def load_cache(state: pathlib.Path) -> dict[str, CacheEntry]:
+    """Read the validators each url returned, so a rerun can revalidate cheaply."""
+
+    target = state / CACHE_NAME
+    if not target.exists():
+        return {}
+    try:
+        stored = json.loads(target.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}
+    return {url: CacheEntry(**fields) for url, fields in stored.items()}
+
+
+def save_cache(state: pathlib.Path, cache: dict[str, CacheEntry]) -> None:
+    """Write the validator cache back in a form a person can read."""
+
+    state.mkdir(parents=True, exist_ok=True)
+    payload = {url: dataclasses.asdict(entry) for url, entry in sorted(cache.items())}
+    (state / CACHE_NAME).write_text(json.dumps(payload, indent=2), encoding="utf-8")

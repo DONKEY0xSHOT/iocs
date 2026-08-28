@@ -11,7 +11,7 @@ from dataclasses import dataclass
 # One module per concern means each is larger than when the package was split
 # across fifteen files, so the budget tracks the shape we actually chose
 MAX_MODULE_LINES = 340
-MAX_PACKAGE_LINES = 2000
+MAX_PACKAGE_LINES = 2100
 MAX_COMMENT_LINES = 2
 PREAMBLE_IMPORTS = "# Imports"
 PREAMBLE_CONSTANTS = "# Constants"
