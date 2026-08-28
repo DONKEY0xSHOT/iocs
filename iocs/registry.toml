@@ -1,0 +1,348 @@
+[[source]]
+name = "phishing_database_domains"
+origin = "mitchellkrogza"
+url = "https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains-ACTIVE.txt"
+host = "raw.githubusercontent.com"
+parser = "plaintext"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "MIT"
+license_url = "https://github.com/mitchellkrogza/Phishing.Database/blob/master/LICENSE.md"
+attribution = "Phishing.Database, Mitchell Krog, MIT licence"
+reliability = "B"
+credibility = 3
+
+[[source]]
+name = "phishing_database_links"
+origin = "mitchellkrogza"
+url = "https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-links-ACTIVE.txt"
+host = "raw.githubusercontent.com"
+parser = "plaintext"
+produces = ["url"]
+license_class = "permissive"
+license_id = "MIT"
+license_url = "https://github.com/mitchellkrogza/Phishing.Database/blob/master/LICENSE.md"
+attribution = "Phishing.Database, Mitchell Krog, MIT licence"
+reliability = "B"
+credibility = 3
+
+[[source]]
+name = "et_open_compromised_ips"
+origin = "etopen"
+url = "https://rules.emergingthreats.net/blockrules/compromised-ips.txt"
+host = "rules.emergingthreats.net"
+parser = "plaintext"
+produces = ["ipv4"]
+license_class = "permissive"
+license_id = "BSD-2-Clause"
+license_url = "https://rules.emergingthreats.net/LICENSE"
+attribution = "Emerging Threats Open, copyright 2003-2026 Emerging Threats, BSD licence"
+reliability = "B"
+credibility = 3
+sentinel_url = "https://rules.emergingthreats.net/blockrules/COMPrev"
+
+[[source]]
+name = "ipsum_level3"
+origin = "stamparm"
+url = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt"
+host = "raw.githubusercontent.com"
+parser = "plaintext"
+produces = ["ipv4"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/stamparm/ipsum/blob/master/LICENSE"
+attribution = "IPsum, Miroslav Stampar"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "circl_osint_feed"
+origin = "circl"
+url = "https://www.circl.lu/doc/misp/feed-osint/manifest.json"
+follow_template = "https://www.circl.lu/doc/misp/feed-osint/{item}.json"
+follow_parser = "misp_event"
+follow_limit = 60
+host = "www.circl.lu"
+parser = "misp_manifest"
+produces = ["md5", "sha1", "sha256", "domain", "ipv4", "ipv6", "url"]
+license_class = "permissive"
+license_id = "TLP-CLEAR"
+license_url = "https://www.circl.lu/doc/misp/feed-osint/"
+attribution = "CIRCL OSINT feed, TLP:CLEAR"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "eset_malware_ioc"
+origin = "eset"
+url = "https://api.github.com/repos/eset/malware-ioc/git/trees/master?recursive=1"
+follow_template = "https://raw.githubusercontent.com/eset/malware-ioc/master/{item}"
+follow_parser = "plaintext"
+follow_limit = 500
+follow_suffixes = ["samples.md5", "samples.sha1", "samples.sha256"]
+host = "api.github.com"
+parser = "github_tree"
+produces = ["md5", "sha1", "sha256"]
+license_class = "permissive"
+license_id = "BSD-2-Clause"
+license_url = "https://github.com/eset/malware-ioc/blob/master/LICENSE"
+attribution = "ESET malware-ioc, copyright ESET spol. s r.o., BSD 2 clause licence"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "misp_warninglists"
+origin = "misp"
+url = "https://api.github.com/repos/MISP/misp-warninglists/tarball/main"
+host = "api.github.com"
+parser = "warninglist_archive"
+produces = []
+license_class = "permissive"
+license_id = "CC0-1.0"
+license_url = "https://github.com/MISP/misp-warninglists/blob/main/LICENSE"
+attribution = "MISP warninglists, CC0 1.0"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "abusech_urlhaus"
+origin = "abusech"
+url = "https://urlhaus.abuse.ch/downloads/csv/"
+host = "urlhaus.abuse.ch"
+parser = "csv_rows"
+archive = "zip"
+csv_columns = [2]
+produces = ["url"]
+license_class = "restricted"
+license_id = "ABUSECH-TOU"
+license_url = "https://abuse.ch/terms-of-use/"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "abusech_threatfox"
+origin = "abusech"
+url = "https://threatfox.abuse.ch/export/csv/full/"
+host = "threatfox.abuse.ch"
+parser = "csv_rows"
+archive = "zip"
+csv_columns = [2]
+produces = ["md5", "sha1", "sha256", "domain", "ipv4", "url"]
+license_class = "restricted"
+license_id = "ABUSECH-TOU"
+license_url = "https://abuse.ch/terms-of-use/"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "abusech_malwarebazaar"
+origin = "abusech"
+url = "https://bazaar.abuse.ch/export/csv/full/"
+host = "bazaar.abuse.ch"
+parser = "csv_rows"
+archive = "zip"
+csv_columns = [1, 2, 3]
+produces = ["md5", "sha1", "sha256"]
+license_class = "restricted"
+license_id = "ABUSECH-TOU"
+license_url = "https://abuse.ch/terms-of-use/"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "dshield_block"
+origin = "dshield"
+url = "https://feeds.dshield.org/block.txt"
+host = "feeds.dshield.org"
+parser = "dshield"
+produces = ["ipv4"]
+license_class = "restricted"
+license_id = "CC-BY-NC-SA-2.5"
+license_url = "https://creativecommons.org/licenses/by-nc-sa/2.5/"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "cins_army"
+origin = "cinsarmy"
+url = "https://cinsscore.com/list/ci-badguys.txt"
+host = "cinsscore.com"
+parser = "plaintext"
+produces = ["ipv4"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://cinsarmy.com/list-download/"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "greensnow"
+origin = "greensnow"
+url = "https://blocklist.greensnow.co/greensnow.txt"
+host = "blocklist.greensnow.co"
+parser = "plaintext"
+produces = ["ipv4"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://blocklist.greensnow.co/"
+reliability = "D"
+credibility = 3
+
+[[source]]
+name = "volexity_threat_intel"
+origin = "volexity"
+url = "https://api.github.com/repos/volexity/threat-intel/git/trees/main?recursive=1"
+follow_template = "https://raw.githubusercontent.com/volexity/threat-intel/main/{item}"
+follow_parser = "csv_rows"
+follow_limit = 60
+follow_suffixes = ["indicators.csv"]
+csv_columns = [0]
+csv_skip_rows = 1
+host = "api.github.com"
+parser = "github_tree"
+produces = ["md5", "sha1", "sha256", "domain", "ipv4", "url"]
+license_class = "permissive"
+license_id = "BSD-2-Clause"
+license_url = "https://github.com/volexity/threat-intel/blob/main/LICENSE.txt"
+attribution = "Volexity threat-intel, copyright Volexity Inc, BSD 2 clause license"
+reliability = "A"
+credibility = 2
+
+[[source]]
+name = "shadowwhisperer_malware"
+origin = "shadowwhisperer"
+url = "https://raw.githubusercontent.com/ShadowWhisperer/BlockLists/master/Lists/Malware"
+host = "raw.githubusercontent.com"
+parser = "hosts"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/ShadowWhisperer/BlockLists/blob/master/LICENSE"
+attribution = "ShadowWhisperer BlockLists, released into the public domain"
+reliability = "B"
+credibility = 2
+
+[[source]]
+name = "shadowwhisperer_scam"
+origin = "shadowwhisperer"
+url = "https://raw.githubusercontent.com/ShadowWhisperer/BlockLists/master/Lists/Scam"
+host = "raw.githubusercontent.com"
+parser = "hosts"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/ShadowWhisperer/BlockLists/blob/master/LICENSE"
+attribution = "ShadowWhisperer BlockLists, released into the public domain"
+reliability = "B"
+credibility = 2
+
+[[source]]
+name = "blocklistproject_phishing"
+origin = "blocklistproject"
+url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/phishing.txt"
+host = "raw.githubusercontent.com"
+parser = "hosts"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/blocklistproject/Lists/blob/master/LICENSE"
+attribution = "The Blocklist Project, released into the public domain"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "blocklistproject_abuse"
+origin = "blocklistproject"
+url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/abuse.txt"
+host = "raw.githubusercontent.com"
+parser = "hosts"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/blocklistproject/Lists/blob/master/LICENSE"
+attribution = "The Blocklist Project, released into the public domain"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "blocklistproject_ransomware"
+origin = "blocklistproject"
+url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/ransomware.txt"
+host = "raw.githubusercontent.com"
+parser = "hosts"
+produces = ["domain"]
+license_class = "permissive"
+license_id = "Unlicense"
+license_url = "https://github.com/blocklistproject/Lists/blob/master/LICENSE"
+attribution = "The Blocklist Project, released into the public domain"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "virusshare_md5"
+origin = "virusshare"
+url = "https://virusshare.com/hashes"
+host = "virusshare.com"
+parser = "html_links"
+follow_suffixes = [".md5"]
+follow_template = "https://virusshare.com/{item}"
+follow_parser = "plaintext"
+follow_limit = 500
+produces = ["md5"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://virusshare.com/"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "certpl_phishing"
+origin = "certpl"
+url = "https://hole.cert.pl/domains/v2/domains.txt"
+host = "hole.cert.pl"
+parser = "plaintext"
+produces = ["domain"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://hole.cert.pl/"
+reliability = "A"
+credibility = 3
+
+[[source]]
+name = "threatview_c2_ip"
+origin = "threatview"
+url = "https://threatview.io/Downloads/IP-High-Confidence-Feed.txt"
+host = "threatview.io"
+parser = "plaintext"
+produces = ["ipv4"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://threatview.io/"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "threatview_md5"
+origin = "threatview"
+url = "https://threatview.io/Downloads/MD5-HASH-ALL.txt"
+host = "threatview.io"
+parser = "plaintext"
+produces = ["md5"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://threatview.io/"
+reliability = "C"
+credibility = 3
+
+[[source]]
+name = "blocklistde_all"
+origin = "blocklistde"
+url = "https://lists.blocklist.de/lists/all.txt"
+host = "lists.blocklist.de"
+parser = "plaintext"
+produces = ["ipv4", "ipv6"]
+license_class = "unknown"
+license_id = "NONE-STATED"
+license_url = "https://www.blocklist.de/en/index.html"
+reliability = "B"
+credibility = 2
