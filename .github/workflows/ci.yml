@@ -16,20 +16,15 @@ concurrency:
 
 jobs:
   check:
-    name: code quality check (py${{ matrix.python-version }})
+    name: code quality check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13", "3.14"]
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
 
       # the dev group lives in pyproject.toml, so ci and a local run install the
       # same tools and cannot drift apart
