@@ -15,11 +15,10 @@ from iocs.cli import (
     EXIT_PARTIAL_PREFIXES,
     EXIT_USAGE,
     build_parser,
-    collect,
     main,
     select_sources,
-    today,
 )
+from iocs.collector import collect, today
 from iocs.http import Fetcher, UrlGuard
 from iocs.indicators import IocType
 from iocs.sources import REGISTRY, Source, follow_prefixes
