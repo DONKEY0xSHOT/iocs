@@ -1,4 +1,4 @@
-"""The four kinds of indicator, and how one value is checked and stored."""
+"""The seven kinds of indicator, and how one value is checked and stored."""
 
 # Imports
 import ipaddress
