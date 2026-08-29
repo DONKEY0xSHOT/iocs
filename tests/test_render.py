@@ -10,22 +10,15 @@ from iocs.render import (
     RESET,
     YELLOW,
     Progress,
+    colour_ready,
     progress_bar,
     render_record,
     run_summary,
     supports_colour,
 )
+from strategies import RECORD
 
 # Constants
-RECORD = {
-    "value": "45.155.205.233",
-    "type": "ipv4",
-    "first_seen": "2026-08-01",
-    "last_seen": "2026-08-20",
-    "origins": ["circl", "etopen"],
-    "score": 74,
-    "redistributable": False,
-}
 SHOWN = "45[.]155[.]205[.]233"
 
 
@@ -178,3 +171,11 @@ def test_summary_names_what_needs_a_look() -> None:
     outcomes = {"alpha": "fetched", "beta": "failed: http 403", "gamma": "empty: nothing"}
     summary = run_summary(outcomes, ("failed", "empty"))
     assert "needs a look: beta, gamma" in summary
+
+
+# Verify the one call that decides about colour also readies the console, so no
+# caller has to remember the windows step
+def test_colour_ready_follows_support(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert colour_ready(Terminal())
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert not colour_ready(Terminal())

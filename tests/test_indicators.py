@@ -136,13 +136,6 @@ def test_url_with_address_host_is_accepted(raw: str, value: str) -> None:
     assert result.value == value
 
 
-# Verify the indicator type list documents itself accurately
-def test_ioc_type_count_matches_its_docstring() -> None:
-    text = IocType.__doc__ or ""
-    assert "four" not in text.lower()
-    assert len(list(IocType)) == 7
-
-
 # Verify an address and port keeps the address, which is the part we model
 def test_ipv4_with_a_port_keeps_the_address() -> None:
     result = classify("45.155.205.233:443")

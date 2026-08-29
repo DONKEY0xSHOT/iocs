@@ -6,6 +6,7 @@ import datetime
 import json
 import pathlib
 import random
+from collections.abc import Callable
 import httpx
 import pytest
 from test_http import FakeClock
@@ -14,28 +15,19 @@ from iocs.cli import (
     EXIT_PARTIAL_PREFIXES,
     EXIT_USAGE,
     build_parser,
-    collect,
     main,
     select_sources,
-    today,
 )
+from iocs.collector import collect, today
 from iocs.http import Fetcher, UrlGuard
 from iocs.indicators import IocType
 from iocs.sources import REGISTRY, Source, follow_prefixes
-from strategies import make_source
+from strategies import RECORD, make_source
 
 # Constants
 TODAY = "2026-08-28"
-VALUE = "45.155.205.233"
-RECORD = {
-    "value": VALUE,
-    "type": "ipv4",
-    "first_seen": "2026-08-01",
-    "last_seen": "2026-08-20",
-    "origins": ["circl", "etopen"],
-    "score": 64,
-    "redistributable": False,
-}
+Handler = Callable[[httpx.Request], httpx.Response]
+VALUE = str(RECORD["value"])
 
 
 # Write a small corpus for the lookup tests
@@ -45,15 +37,20 @@ def seed_corpus(root: pathlib.Path) -> pathlib.Path:
     return root
 
 
+# Wrap a request handler in a fetcher that paces against a fake clock
+def _fetcher(handler: Handler, sources: list[Source]) -> Fetcher:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    guard = UrlGuard(frozenset(item.url for item in sources), follow_prefixes(sources))
+    return Fetcher(client, guard, clock=FakeClock(), rng=random.Random(1))
+
+
 # Build a fetcher that answers each url from a fixed table of bodies
 def fetcher_for(bodies: dict[str, bytes], sources: list[Source]) -> Fetcher:
     def handler(request: httpx.Request) -> httpx.Response:
         body = bodies.get(str(request.url))
         return httpx.Response(200, content=body) if body is not None else httpx.Response(404)
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    guard = UrlGuard(frozenset(item.url for item in sources), follow_prefixes(sources))
-    return Fetcher(client, guard, clock=FakeClock(), rng=random.Random(1))
+    return _fetcher(handler, sources)
 
 
 # Read the corpus one collection produced
@@ -241,9 +238,7 @@ def revalidating_fetcher(bodies: dict[str, bytes], sources: list[Source]) -> Fet
             return httpx.Response(404)
         return httpx.Response(200, content=body, headers={"etag": '"v1"'})
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    guard = UrlGuard(frozenset(item.url for item in sources), follow_prefixes(sources))
-    return Fetcher(client, guard, clock=FakeClock(), rng=random.Random(1))
+    return _fetcher(handler, sources)
 
 
 # Verify an exclusion source is read in full on every run. A 304 would leave the

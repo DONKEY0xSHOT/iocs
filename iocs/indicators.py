@@ -1,4 +1,4 @@
-"""The four kinds of indicator, and how one value is checked and stored."""
+"""The seven kinds of indicator, and how one value is checked and stored."""
 
 # Imports
 import ipaddress
@@ -252,9 +252,12 @@ def merge_records(records: Iterable[Record]) -> Record:
             previous = seen.get(sighting.origin)
             seen[sighting.origin] = _merge_sighting(previous, sighting) if previous else sighting
 
-    # iso dates sort in date order, so the newest origins survive the cap
-    by_name = sorted(seen.values(), key=lambda item: item.origin)
-    kept = sorted(by_name, key=lambda item: item.last_seen, reverse=True)[:MAX_ORIGINS]
+    # a record holds at most MAX_ORIGINS origins, so ranking only matters when there
+    # are more. Iso dates sort in date order, so the newest are kept, names break ties
+    kept = list(seen.values())
+    if len(kept) > MAX_ORIGINS:
+        by_name = sorted(kept, key=lambda item: item.origin)
+        kept = sorted(by_name, key=lambda item: item.last_seen, reverse=True)[:MAX_ORIGINS]
     return Record(
         items[0].value,
         min(item.first_seen for item in items),

@@ -75,11 +75,13 @@ def _build(entry: dict[str, Any]) -> Source:
         license_url=str(entry["license_url"]),
         reliability=Reliability(entry["reliability"]),
         credibility=int(entry["credibility"]),
-        follow_limit=int(entry.get("follow_limit", 500)),
-        follow_suffixes=tuple(str(item) for item in entry.get("follow_suffixes", ())),
-        csv_columns=tuple(int(item) for item in entry.get("csv_columns", (0,))),
-        csv_skip_rows=int(entry.get("csv_skip_rows", 0)),
-        archive=str(entry.get("archive", "")),
+        follow_limit=int(entry.get("follow_limit", Source.follow_limit)),
+        follow_suffixes=tuple(
+            str(item) for item in entry.get("follow_suffixes", Source.follow_suffixes)
+        ),
+        csv_columns=tuple(int(item) for item in entry.get("csv_columns", Source.csv_columns)),
+        csv_skip_rows=int(entry.get("csv_skip_rows", Source.csv_skip_rows)),
+        archive=str(entry.get("archive", Source.archive)),
         **text,
     )
 
