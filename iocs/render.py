@@ -36,6 +36,15 @@ def supports_colour(stream: TextIO) -> bool:
     return is_terminal(stream)
 
 
+def colour_ready(stream: TextIO) -> bool:
+    """Report whether to tint, switching the console on when it is wanted."""
+
+    wanted = supports_colour(stream)
+    if wanted:
+        enable_windows_colour()
+    return wanted
+
+
 def enable_windows_colour() -> None:
     """Switch on escape sequences, which windows consoles start with turned off."""
 

@@ -10,6 +10,7 @@ from iocs.render import (
     RESET,
     YELLOW,
     Progress,
+    colour_ready,
     progress_bar,
     render_record,
     run_summary,
@@ -178,3 +179,11 @@ def test_summary_names_what_needs_a_look() -> None:
     outcomes = {"alpha": "fetched", "beta": "failed: http 403", "gamma": "empty: nothing"}
     summary = run_summary(outcomes, ("failed", "empty"))
     assert "needs a look: beta, gamma" in summary
+
+
+# Verify the one call that decides about colour also readies the console, so no
+# caller has to remember the windows step
+def test_colour_ready_follows_support(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert colour_ready(Terminal())
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert not colour_ready(Terminal())

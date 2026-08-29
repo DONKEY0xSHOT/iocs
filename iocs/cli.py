@@ -28,12 +28,11 @@ from iocs.indicators import Canonical, IocType, Observation, Record, classify, d
 from iocs.parsers import ParserOptions, parse
 from iocs.render import (
     Progress,
-    enable_windows_colour,
+    colour_ready,
     is_terminal,
     render_record,
     render_sources,
     run_summary,
-    supports_colour,
 )
 from iocs.sources import REGISTRY, LicenseClass, Source, follow_prefixes, traits_by_origin
 from iocs.version import VERSION
@@ -230,9 +229,7 @@ async def run_collect(args: argparse.Namespace) -> int:
 
     sources = select_sources(args.sources)
     guard = UrlGuard(frozenset(source.url for source in sources), follow_prefixes(sources))
-    colour = supports_colour(sys.stdout)
-    if colour:
-        enable_windows_colour()
+    colour = colour_ready(sys.stdout)
     progress = Progress(len(sources), sys.stdout, is_terminal(sys.stdout), colour)
     async with build_client() as client:
         fetcher = Fetcher(client, guard)
@@ -255,9 +252,7 @@ async def run_collect(args: argparse.Namespace) -> int:
 def run_sources() -> int:
     """List every source, its license, and whether its data may be passed on."""
 
-    colour = supports_colour(sys.stdout)
-    if colour:
-        enable_windows_colour()
+    colour = colour_ready(sys.stdout)
     entries = [
         (source.name, source.license_id, source.license_class is LicenseClass.PERMISSIVE)
         for source in sorted(REGISTRY, key=lambda item: item.name)
@@ -271,9 +266,7 @@ def run_sources() -> int:
 def show_record(record: dict[str, Any]) -> None:
     """Print what we know about one indicator, defanged so it cannot be clicked."""
 
-    colour = supports_colour(sys.stdout)
-    if colour:
-        enable_windows_colour()
+    colour = colour_ready(sys.stdout)
     print()
     print(render_record(record, defang(str(record["value"])), colour))
     print()
