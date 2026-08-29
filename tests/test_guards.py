@@ -4,6 +4,7 @@
 import ast
 import pathlib
 import re
+import tomllib
 import pytest
 from iocs.allowlist import ALLOWLIST_PARSERS
 from iocs.http import UrlGuard
@@ -186,3 +187,25 @@ def test_no_definition_goes_unused() -> None:
                 if len(re.findall(rf"\b{re.escape(name)}\b", text)) < 2:
                     unused.append(f"{path.name}:{line} {name}")
     assert unused == [], f"defined but never used: {unused}"
+
+
+def minimum_python() -> tuple[int, int]:
+    """Read the oldest python the project promises to run on."""
+
+    spec = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    major, minor = re.findall(r"\d+", spec["project"]["requires-python"])[:2]
+    return int(major), int(minor)
+
+
+# Verify nothing uses syntax newer than the version the project promises. The
+# parse uses the minimum python's grammar, which is what catches newer syntax
+def test_syntax_fits_the_minimum_python() -> None:
+    floor = minimum_python()
+    too_new = []
+    for folder in (PACKAGE, TOOLS):
+        for path in sorted(folder.rglob("*.py")):
+            try:
+                ast.parse(path.read_text(encoding="utf-8"), feature_version=floor)
+            except SyntaxError as error:
+                too_new.append(f"{path.name}:{error.lineno} {error.msg}")
+    assert too_new == [], f"needs a newer python than {floor}: {too_new}"
