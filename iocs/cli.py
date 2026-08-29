@@ -8,7 +8,7 @@ import datetime
 import json
 import pathlib
 import sys
-from collections.abc import AsyncIterator, Callable, Iterable, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator, Sequence
 from typing import Any
 from iocs.allowlist import Allowlist, apply_layers, load_warninglist_archive
 from iocs.corpus import OUTPUT_NAME, Stats, build, lookup, write_sorted_chunks
@@ -99,14 +99,11 @@ def _options_for(source: Source) -> ParserOptions:
 
 
 # Turn one feed body into observations of the types the source declares
-def _observations(source: Source, body: bytes, today: str) -> list[Typed]:
-    kept: list[Typed] = []
+def _observations(source: Source, body: bytes, today: str) -> Iterator[Typed]:
     for raw in parse(source.parser, body, _options_for(source)):
         result = classify(raw)
         if isinstance(result, Canonical) and result.type in source.produces:
-            seen = Observation(result.value, source.origin, today, source.credibility)
-            kept.append((result.type, seen))
-    return kept
+            yield result.type, Observation(result.value, source.origin, today, source.credibility)
 
 
 # Fetch each document an index source points at, capped so one feed cannot run
@@ -118,7 +115,7 @@ async def _follow(
     today: str,
     cache: dict[str, CacheEntry],
     report: Report,
-) -> AsyncIterator[list[Typed]]:
+) -> AsyncIterator[Iterator[Typed]]:
     if not source.follow_template or not source.follow_parser:
         yield _observations(source, body, today)
         return
@@ -133,12 +130,15 @@ async def _follow(
 
 
 # Group fresh observations into one staged chunk file per indicator type
-def _stage(observations: Iterable[Typed], work: pathlib.Path) -> None:
+def _stage(observations: Iterable[Typed], work: pathlib.Path) -> int:
     lines: dict[IocType, list[str]] = {}
+    staged = 0
     for kind, item in observations:
         lines.setdefault(kind, []).append(encode(Record.from_observation(item)))
+        staged += 1
     for kind, batch in lines.items():
         write_sorted_chunks(iter(batch), work / kind.value)
+    return staged
 
 
 # Build the allowlist from any source that supplies exclusions rather than indicators
@@ -191,8 +191,7 @@ async def collect(
             continue
         produced = 0
         async for found in _follow(source, outcome.body, fetcher, today, cache, report):
-            produced += len(found)
-            _stage(found, work)
+            produced += _stage(found, work)
 
         # a feed that answers but parses to nothing is how a format change looks,
         # and a 200 on its own would let that pass as a healthy run
