@@ -130,3 +130,35 @@ def test_comment_opening_a_block_is_allowed(tmp_path: pathlib.Path) -> None:
     body = "\n".join(lines)
     target.write_text(f"{HEAD}\n\n{body}\n")
     assert "placement" not in {item.code for item in check_standards.check_file(target)}
+
+
+# Verify a name long enough to read as a sentence is rejected in the package
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def collect_and_normalise_every_indicator() -> None:\n    return",
+        "class TheThingThatHoldsAllOfTheCollectedRecords:\n    value = 1",
+    ],
+)
+def test_long_names_are_rejected(tmp_path: pathlib.Path, body: str) -> None:
+    target = tmp_path / "long.py"
+    target.write_text(f"{HEAD}\n\n{body}\n")
+    assert "long-name" in {item.code for item in check_standards.check_file(target)}
+
+
+# Verify a name that fits the limit is accepted
+def test_names_within_the_limit_pass(tmp_path: pathlib.Path) -> None:
+    body = "def build_conditional_headers() -> None:\n    return"
+    target = tmp_path / "fine.py"
+    target.write_text(f"{HEAD}\n\n{body}\n")
+    assert "long-name" not in {item.code for item in check_standards.check_file(target)}
+
+
+# Verify a test file allows longer names, since a test name describes what it checks
+def test_longer_names_allowed_in_tests(tmp_path: pathlib.Path) -> None:
+    folder = tmp_path / "tests"
+    folder.mkdir()
+    body = "def test_collect_flags_a_feed_that_yields_nothing() -> None:\n    return"
+    target = folder / "test_probe.py"
+    target.write_text(f"{HEAD}\n\n{body}\n")
+    assert "long-name" not in {item.code for item in check_standards.check_file(target)}
