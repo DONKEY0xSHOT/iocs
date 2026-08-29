@@ -16,17 +16,9 @@ from iocs.render import (
     run_summary,
     supports_colour,
 )
+from strategies import RECORD
 
 # Constants
-RECORD = {
-    "value": "45.155.205.233",
-    "type": "ipv4",
-    "first_seen": "2026-08-01",
-    "last_seen": "2026-08-20",
-    "origins": ["circl", "etopen"],
-    "score": 74,
-    "redistributable": False,
-}
 SHOWN = "45[.]155[.]205[.]233"
 
 

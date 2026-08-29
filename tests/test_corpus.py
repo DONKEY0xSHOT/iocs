@@ -31,6 +31,15 @@ RESTRICTED = (Reliability.B, LicenseClass.RESTRICTED)
 TRAITS = {"alpha": PERMISSIVE, "beta": PERMISSIVE, "vendor": RESTRICTED}
 
 
+Folders = tuple[pathlib.Path, pathlib.Path, pathlib.Path]
+
+
+# Give each build its own work, state and out directories
+@pytest.fixture
+def folders(tmp_path: pathlib.Path) -> Folders:
+    return tmp_path / "work", tmp_path / "state", tmp_path / "out"
+
+
 # Build a record seen by the named origins on the given day
 def make_record(value: str, origins: list[str], day: str = TODAY) -> Record:
     seen = tuple(Sighting(name, day, day, 2, 1) for name in origins)
@@ -123,8 +132,8 @@ def test_score_is_capped() -> None:
 
 
 # Verify the corpus is written as one sorted file covering every type
-def test_build_writes_one_sorted_file(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_writes_one_sorted_file(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("b.example", ["alpha"])])
     stage(work, IocType.MD5, [make_record("0" * 32, ["beta"])])
     stats, excluded = build(out, state, work, TODAY, Allowlist(), TRAITS)
@@ -137,8 +146,8 @@ def test_build_writes_one_sorted_file(tmp_path: pathlib.Path) -> None:
 
 
 # Verify a value both origins report is counted as confirmed
-def test_build_counts_confirmation(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_counts_confirmation(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("a.example", ["alpha"])])
     stage(work, IocType.DOMAIN, [make_record("a.example", ["beta"])])
     stats, _ = build(out, state, work, TODAY, Allowlist(), TRAITS)
@@ -148,8 +157,8 @@ def test_build_counts_confirmation(tmp_path: pathlib.Path) -> None:
 
 
 # Verify one restricted origin is enough to mark an indicator unshareable
-def test_build_marks_restricted_records(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_marks_restricted_records(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("a.example", ["alpha", "vendor"])])
     build(out, state, work, TODAY, Allowlist(), TRAITS)
     record = json.loads((out / "iocs.jsonl").read_text(encoding="utf-8"))
@@ -157,8 +166,8 @@ def test_build_marks_restricted_records(tmp_path: pathlib.Path) -> None:
 
 
 # Verify an indicator seen only through permissive sources may be shared
-def test_build_marks_permissive_records(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_marks_permissive_records(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("a.example", ["alpha", "beta"])])
     build(out, state, work, TODAY, Allowlist(), TRAITS)
     record = json.loads((out / "iocs.jsonl").read_text(encoding="utf-8"))
@@ -167,8 +176,8 @@ def test_build_marks_permissive_records(tmp_path: pathlib.Path) -> None:
 
 
 # Verify an added layer holds a value back and records which layer did it
-def test_build_excludes_allowlisted_values(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_excludes_allowlisted_values(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.IPV4, [make_record("45.155.205.233", ["alpha"])])
     allowlist = Allowlist(ranges={"vendor cdn": RangeSet(["45.155.205.0/24"])})
     stats, excluded = build(out, state, work, TODAY, allowlist, TRAITS)
@@ -179,16 +188,16 @@ def test_build_excludes_allowlisted_values(tmp_path: pathlib.Path) -> None:
 
 
 # Verify the built in layers hold back a well known resolver with no setup
-def test_build_excludes_known_infrastructure(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_excludes_known_infrastructure(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.IPV4, [make_record("8.8.8.8", ["alpha"])])
     _, excluded = build(out, state, work, TODAY, Allowlist(), TRAITS)
     assert excluded[0]["layer"] == "public_resolver"
 
 
 # Verify a second run merges into what the first run stored
-def test_build_merges_with_previous_state(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_merges_with_previous_state(folders: Folders, tmp_path: pathlib.Path) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("a.example", ["alpha"])])
     build(out, state, work, TODAY, Allowlist(), TRAITS)
     later = tmp_path / "work2"
@@ -286,8 +295,8 @@ def test_lookup_on_an_empty_corpus(tmp_path: pathlib.Path) -> None:
 
 # Verify the corpus is renamed into place, so a lookup during a collection reads
 # the last complete file instead of a half written one
-def test_build_leaves_no_temporary_file(tmp_path: pathlib.Path) -> None:
-    work, state, out = tmp_path / "work", tmp_path / "state", tmp_path / "out"
+def test_build_leaves_no_temporary_file(folders: Folders) -> None:
+    work, state, out = folders
     stage(work, IocType.DOMAIN, [make_record("a.example", ["alpha"])])
     build(out, state, work, TODAY, Allowlist(), TRAITS)
     assert (out / "iocs.jsonl").exists()

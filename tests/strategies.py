@@ -44,6 +44,17 @@ RECORDS = st.builds(
 )
 
 
+RECORD: dict[str, object] = {
+    "value": "45.155.205.233",
+    "type": "ipv4",
+    "first_seen": "2026-08-01",
+    "last_seen": "2026-08-20",
+    "origins": ["circl", "etopen"],
+    "score": 74,
+    "redistributable": False,
+}
+
+
 # Build a small permissive source for tests that need one
 def make_source(name: str, origin: str, kind: IocType = IocType.IPV4) -> Source:
     return Source(
