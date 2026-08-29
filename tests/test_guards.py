@@ -4,6 +4,7 @@
 import ast
 import pathlib
 import re
+import tomllib
 import pytest
 from iocs.allowlist import ALLOWLIST_PARSERS
 from iocs.http import UrlGuard
@@ -11,8 +12,15 @@ from iocs.parsers import PARSERS
 from iocs.sources import REGISTRY, follow_prefixes
 
 # Constants
-PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "iocs"
-WORKFLOWS = pathlib.Path(__file__).resolve().parents[1] / ".github" / "workflows"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+PACKAGE = ROOT / "iocs"
+TOOLS = ROOT / "tools"
+WORKFLOWS = ROOT / ".github" / "workflows"
+
+# only files that can reference a name. Prose is left out, since a mention in
+# documentation is not a use and would hide real unused code
+REFERENCING_SUFFIXES = (".py", ".toml", ".yml", ".yaml")
+SKIP_DIRS = {".git", ".venv", "__pycache__", "out", "state", "final_project"}
 NETWORK_MODULES = {
     "httpx",
     "socket",
@@ -135,3 +143,69 @@ def test_follow_targets_are_permitted() -> None:
 def test_verify_script_covers_every_gate(gate: str) -> None:
     text = (PACKAGE.parent / "tools" / "verify.py").read_text(encoding="utf-8")
     assert gate in text
+
+
+# Class attributes and enum members are left out on purpose, since they are
+# reached through their class and a name search would call them unused
+def defined_names(path: pathlib.Path) -> list[tuple[str, int]]:
+    """List every top level name a module defines, with the line it sits on."""
+
+    found = []
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            found.append((node.name, node.lineno))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            found.append((node.target.id, node.lineno))
+        elif isinstance(node, ast.Assign):
+            found.extend(
+                (target.id, node.lineno) for target in node.targets if isinstance(target, ast.Name)
+            )
+    return found
+
+
+def referencing_text() -> str:
+    """Join every file that could refer to a definition by name."""
+
+    parts = []
+    for path in sorted(ROOT.rglob("*")):
+        skipped = SKIP_DIRS.intersection(path.parts)
+        if path.suffix in REFERENCING_SUFFIXES and not skipped:
+            parts.append(path.read_text(encoding="utf-8", errors="ignore"))
+    return "\n".join(parts)
+
+
+# Verify nothing is defined and then never used. Unused code accumulates quietly
+# as a project grows, and the cost of carrying it is paid by every later reader.
+def test_no_definition_goes_unused() -> None:
+    text = referencing_text()
+    unused = []
+    for folder in (PACKAGE, TOOLS):
+        for path in sorted(folder.rglob("*.py")):
+            for name, line in defined_names(path):
+                if name.startswith("__"):
+                    continue
+                if len(re.findall(rf"\b{re.escape(name)}\b", text)) < 2:
+                    unused.append(f"{path.name}:{line} {name}")
+    assert unused == [], f"defined but never used: {unused}"
+
+
+def minimum_python() -> tuple[int, int]:
+    """Read the oldest python the project promises to run on."""
+
+    spec = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    major, minor = re.findall(r"\d+", spec["project"]["requires-python"])[:2]
+    return int(major), int(minor)
+
+
+# Verify nothing uses syntax newer than the version the project promises. The
+# parse uses the minimum python's grammar, which is what catches newer syntax
+def test_syntax_fits_the_minimum_python() -> None:
+    floor = minimum_python()
+    too_new = []
+    for folder in (PACKAGE, TOOLS):
+        for path in sorted(folder.rglob("*.py")):
+            try:
+                ast.parse(path.read_text(encoding="utf-8"), feature_version=floor)
+            except SyntaxError as error:
+                too_new.append(f"{path.name}:{error.lineno} {error.msg}")
+    assert too_new == [], f"needs a newer python than {floor}: {too_new}"

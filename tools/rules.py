@@ -21,6 +21,11 @@ PRAGMA = re.compile(r"#\s*(noqa|type:|pragma|pylint:|mypy:|ruff:)")
 DIVIDER = re.compile(r"#\s*[-=*_#]{3,}")
 TRAILER = re.compile(r"^[A-Za-z][A-Za-z-]*: ")
 MIN_NAME_LENGTH = 3
+MAX_NAME_LENGTH = 30
+
+# A test name describes the behaviour it checks, so it needs more room than
+# a name inside the package
+MAX_TEST_NAME_LENGTH = 50
 ALLOWED_SHORT_NAMES = frozenset({"_", "i"})
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", ".ruff_cache", "fixtures"}
 PII_PATTERNS = (
@@ -96,7 +101,14 @@ def check_preamble(path: pathlib.Path, lines: list[str], tree: ast.Module) -> li
 # and enum members, where a short name like A or CI is the real world spelling.
 def check_names(path: pathlib.Path, tree: ast.Module) -> list[Violation]:
     found = []
+    longest = MAX_TEST_NAME_LENGTH if "tests" in path.parts else MAX_NAME_LENGTH
     for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            if len(node.name) > longest:
+                found.append(
+                    Violation(str(path), node.lineno, "long-name", f"name too long: {node.name}")
+                )
+            continue
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             named = [(node.id, node.lineno)]
         elif isinstance(node, ast.arg):

@@ -79,7 +79,7 @@ def _zip_lines(data: bytes) -> Iterator[str]:
                     if read > MAX_ARCHIVE_BYTES:
                         return
                     yield raw
-    except zipfile.BadZipFile, ValueError, EOFError, RuntimeError, OSError:
+    except (zipfile.BadZipFile, ValueError, EOFError, RuntimeError, OSError):
         return
 
 
@@ -102,7 +102,7 @@ def _json(data: bytes) -> Any:
         return {}
     try:
         return json.loads(_text(data))
-    except ValueError, RecursionError:
+    except (ValueError, RecursionError):
         return {}
 
 

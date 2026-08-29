@@ -126,13 +126,13 @@ class Allowlist:
     ranges: dict[str, RangeSet] = field(default_factory=dict)
     values: dict[str, frozenset[str]] = field(default_factory=dict)
 
-    def with_ranges(self, layer: str, cidrs: Iterable[str]) -> Allowlist:
+    def with_ranges(self, layer: str, cidrs: Iterable[str]) -> "Allowlist":
         """Return a copy with one more list of address ranges."""
 
         _reject_popularity(layer)
         return Allowlist({**self.ranges, layer: RangeSet(cidrs)}, self.values)
 
-    def with_values(self, layer: str, items: Iterable[str]) -> Allowlist:
+    def with_values(self, layer: str, items: Iterable[str]) -> "Allowlist":
         """Return a copy with one more list of exact values."""
 
         _reject_popularity(layer)
@@ -216,7 +216,7 @@ def load_warninglist_archive(data: bytes) -> list[WarningLayer]:
                 layer = load_warninglist(handle.read())
                 if layer is not None:
                     found.append(layer)
-    except tarfile.TarError, ValueError, EOFError:
+    except (tarfile.TarError, ValueError, EOFError):
         return []
     return found
 
